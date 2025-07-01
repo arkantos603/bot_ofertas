@@ -1,2 +1,5 @@
-python-telegram-bot spacy
-pt_core_news_sm
+python-telegram-bot
+python-dotenv
+requests 
+beautifulsoup4
+pandas

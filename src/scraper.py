@@ -1,12 +1,14 @@
 import requests
 import time
 import random
+import re
 from bs4 import BeautifulSoup
 
-def obter_preco_amazon(url: str, tentativas: int = 3) -> float | None:
+def obter_preco_amazon(url: str, tentativas: int = 5) -> float | None:
     """
     Tenta extrair o preço de um produto da Amazon Brasil.
-    Faz até `tentativas` tentativas com delays aleatórios entre elas.
+    Faz até `tentativas` tentativas (inclusive em erro de conversão),
+    com delays aleatórios entre elas.
     Retorna float ou None se não encontrar.
     """
     headers = {
@@ -48,7 +50,6 @@ def obter_preco_amazon(url: str, tentativas: int = 3) -> float | None:
                 frac = container.select_one('span.a-price-fraction')
                 if whole and frac:
                     texto_preco = whole.get_text().strip() + '.' + frac.get_text().strip()
-                    # Criar um objeto temporário com método get_text
                     class Temp:
                         def __init__(self, text):
                             self.text = text
@@ -56,19 +57,35 @@ def obter_preco_amazon(url: str, tentativas: int = 3) -> float | None:
                             return self.text
                     bloco = Temp(texto_preco)
 
-        if bloco:
-            texto = bloco.get_text().strip()
-            # Normaliza: remove 'R$', pontos de milhar e trocar ',' por '.'
-            texto = texto.replace('R$', '').replace('.', '').replace(',', '.').strip()
-            try:
-                return float(texto)
-            except ValueError:
-                print(f"[amazon] falha ao converter texto para float: {texto}")
-                return None
+        if not bloco:
+            print(f"[amazon] não encontrou bloco de preço (tentativa {tentativa})")
+            if tentativa < tentativas:
+                time.sleep(random.uniform(1, 3))
+            continue
 
-        # Se não encontrou e ainda há tentativas, espera antes de tentar de novo
-        if tentativa < tentativas:
-            time.sleep(random.uniform(1, 3))
+        # Extrai e normaliza o valor
+        texto = bloco.get_text()
+        texto = texto.replace('R$', '').replace('\xa0', '').strip()
+        # encontra todos os padrões 1.234,56 ou 1234.56
+        precos = re.findall(r'\d{1,3}(?:[.,]\d{3})*[.,]\d{2}', texto)
+        if not precos:
+            print(f"[amazon] não encontrou padrão de preço em: {texto} (tentativa {tentativa})")
+            if tentativa < tentativas:
+                time.sleep(random.uniform(1, 3))
+            continue
+
+        preco_str = precos[-1]
+        # remove separadores de milhar e unifica decimal
+        preco_str = preco_str.replace('.', '').replace(',', '.')
+        try:
+            return float(preco_str)
+        except ValueError as e:
+            print(f"[amazon] falha ao converter preço (‘{preco_str}’): {e} (tentativa {tentativa})")
+            if tentativa < tentativas:
+                time.sleep(random.uniform(1, 3))
+                continue
+            else:
+                return None
 
     print(f"[amazon] não foi possível obter o preço após {tentativas} tentativas: {url}")
     return None

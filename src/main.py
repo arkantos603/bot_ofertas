@@ -95,7 +95,7 @@ def obter_imagem_amazon(url: str) -> str | None:
 async def enviar_alerta(
     mensagem: str,
     photo_url: str,
-    max_tentativas: int = 7
+    max_tentativas: int = 10
 ) -> bool:
     """
     Envia sempre via send_photo; se falhar, tenta até max_tentativas vezes.
@@ -141,9 +141,9 @@ async def verificar_e_notificar():
             print(f"❌ Falha no scraping de {nome.strip()}: {url}")
             continue
 
-        # tenta extrair imagem até 5 vezes antes de desistir
+        # tenta extrair imagem até 10 vezes antes de desistir
         imagem_url = None
-        for img_tent in range(1, 8):
+        for img_tent in range(1, 11):
             imagem_url = obter_imagem_amazon(url)
             print(f"[imagem] tentativa {img_tent} para '{nome.strip()}': {imagem_url!r}")
             if imagem_url:
